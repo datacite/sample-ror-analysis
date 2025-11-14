@@ -56,19 +56,30 @@ ruby build_ror_data.rb [options]
 - `--input FILE` - Input ROR data file (auto-detects latest if not specified)
 - `--funder-output FILE` - Output funder mapping file (default: `funder_to_ror.json.gz`)
 - `--hierarchy-output FILE` - Output hierarchy file (default: `ror_hierarchy.json.gz`)
+- `--funder-only` - Build only the funder mapping (not hierarchy)
+- `--hierarchy-only` - Build only the hierarchy (not funder mapping)
 - `-h, --help` - Show help message
 
 **Features:**
 - Automatically finds the most recent ROR data file in the current directory
+- Uses streaming JSON parser (yajl-ruby) for better memory efficiency when available
 - Creates funder ID to ROR ID mappings from Fundref external IDs
 - Builds complete organizational hierarchies with ancestors and descendants
+- Optimized storage: only includes organizations with actual hierarchical relationships
 - Outputs compressed JSON files for efficient storage
 - Provides statistics on mappings and hierarchies
+- Build only what you need with `--funder-only` or `--hierarchy-only` flags
 
-**Example:**
+**Examples:**
 ```bash
-# Use auto-detected latest file
+# Build both funder mapping and hierarchy (default)
 ruby build_ror_data.rb
+
+# Build only funder mapping
+ruby build_ror_data.rb --funder-only
+
+# Build only hierarchy
+ruby build_ror_data.rb --hierarchy-only
 
 # Specify custom input file
 ruby build_ror_data.rb --input v1.70-2025-08-26-ror-data_schema_v2.json
@@ -76,13 +87,30 @@ ruby build_ror_data.rb --input v1.70-2025-08-26-ror-data_schema_v2.json
 
 **Outputs:**
 - `funder_to_ror.json.gz` - Mapping of funder IDs to ROR IDs
-- `ror_hierarchy.json.gz` - Organizational hierarchies with ancestors and descendants
+- `ror_hierarchy.json.gz` - Organizational hierarchies with ancestors and descendants (only includes organizations with actual relationships)
+
+**Performance Notes:**
+- Install `yajl-ruby` gem for streaming JSON parsing on large files: `bundle install`
+- Hierarchy file only contains organizations with parent/child relationships, significantly reducing file size
+- Use `--funder-only` or `--hierarchy-only` to process only what you need
 
 ### 3. `ror_hierarchy_lookup.rb`
 
 Efficient lookup tool for querying organizational hierarchies and funder mappings.
 
-**Usage:**
+**Command-Line Usage:**
+```bash
+# Look up by ROR ID
+ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94
+
+# Look up by Funder ID
+ruby ror_hierarchy_lookup.rb 100000001
+
+# Specify custom data files
+ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94 ror_hierarchy.json.gz funder_to_ror.json.gz
+```
+
+**Programmatic Usage:**
 ```ruby
 require_relative 'ror_hierarchy_lookup'
 
@@ -90,23 +118,38 @@ require_relative 'ror_hierarchy_lookup'
 lookup = RorHierarchyLookup.new
 
 # Look up by ROR ID
-result = lookup.lookup('https://ror.org/example123')
+result = lookup.lookup('https://ror.org/02mhbdp94')
 
 # Look up by Funder ID
 result = lookup.lookup('100000001')
 
 # Result structure:
 # {
-#   org_id: "https://ror.org/example123",
+#   org_id: "https://ror.org/02mhbdp94",
+#   input_id: "100000001",
 #   ancestors: ["https://ror.org/parent1", ...],
 #   descendants: ["https://ror.org/child1", ...]
 # }
+
+# Get only ancestors
+ancestors = lookup.ancestors('100000001')
+
+# Get only descendants
+descendants = lookup.descendants('https://ror.org/02mhbdp94')
+
+# Check if organization has relationships
+if lookup.has_ancestors?('100000001')
+  puts "This organization has parent organizations"
+end
 ```
 
 **Features:**
+- Command-line tool for quick lookups
+- Ruby class for programmatic access
 - Loads pre-built gzipped hierarchy and funder mapping files
 - Supports lookup by both ROR IDs and Funder IDs
 - Returns ancestors and descendants for any organization
+- Returns `nil` for organizations not in the hierarchy (i.e., no relationships)
 - Memory-efficient with compressed data
 
 ## Quick Start
@@ -121,7 +164,13 @@ result = lookup.lookup('100000001')
    ruby build_ror_data.rb
    ```
 
-3. **Use the lookup in your code:**
+3. **Query the hierarchy:**
+   ```bash
+   # Command-line lookup
+   ruby ror_hierarchy_lookup.rb 100000001
+   ```
+   
+   Or use it in your code:
    ```ruby
    require_relative 'ror_hierarchy_lookup'
    
@@ -185,6 +234,8 @@ funder_to_ror  ror_hierarchy
   }
 }
 ```
+
+**Note:** Only organizations with at least one ancestor or descendant are included in the hierarchy file. Organizations with no hierarchical relationships are omitted to reduce file size.
 
 ## About ROR
 
