@@ -13,11 +13,15 @@ This toolkit provides utilities to:
 ## Prerequisites
 
 - Ruby 3.0 or later
-- `rubyzip` gem (for downloading data)
+- Bundler for dependency management
 
-```bash
-gem install rubyzip
-```
+## Installation
+
+1. Clone this repository
+2. Install dependencies:
+   ```bash
+   bundle install
+   ```
 
 ## Scripts
 
@@ -104,10 +108,6 @@ result = lookup.lookup('100000001')
 - Supports lookup by both ROR IDs and Funder IDs
 - Returns ancestors and descendants for any organization
 - Memory-efficient with compressed data
-
-### 4. `funder_to_ror.rb`
-
-Standalone script to create only the funder-to-ROR mapping (legacy, use `build_ror_data.rb` instead).
 
 ## Quick Start
 
