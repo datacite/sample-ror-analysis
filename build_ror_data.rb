@@ -34,35 +34,54 @@ def load_ror_data(filepath)
   end
 end
 
-# Build relationship maps AND funder mapping from data in a single pass
+# Build relationship maps from data
 #
 # Returns:
-#   [parent_map, child_map, funder_to_ror]
-def build_maps(data)
+#   [parent_map, child_map]
+def build_relationship_maps(data)
   parent_map = {}
   child_map = {}
-  funder_to_ror = {}
   
   data.each do |entry|
     org_id = entry['id']
     next unless org_id
     
-    # Initialize relationship lists
-    parent_map[org_id] = []
-    child_map[org_id] = []
-    
     # Parse relationships
     relationships = entry['relationships'] || []
+    next if relationships.empty?
+    
+    parents = []
+    children = []
+    
     relationships.each do |rel|
       rel_type = (rel['type'] || '').downcase
       rel_id = rel['id']
       
       if rel_type == 'parent' && rel_id
-        parent_map[org_id] << rel_id
+        parents << rel_id
       elsif rel_type == 'child' && rel_id
-        child_map[org_id] << rel_id
+        children << rel_id
       end
     end
+    
+    # Only add to maps if there are actual relationships
+    parent_map[org_id] = parents unless parents.empty?
+    child_map[org_id] = children unless children.empty?
+  end
+  
+  [parent_map, child_map]
+end
+
+# Build funder mapping from data
+#
+# Returns:
+#   funder_to_ror hash
+def build_funder_mapping(data)
+  funder_to_ror = {}
+  
+  data.each do |entry|
+    org_id = entry['id']
+    next unless org_id
     
     # Parse funder IDs (fundref external IDs)
     external_ids = entry['external_ids'] || []
@@ -79,7 +98,7 @@ def build_maps(data)
     end
   end
   
-  [parent_map, child_map, funder_to_ror]
+  funder_to_ror
 end
 
 # Find all ancestors by traversing parent relationships
@@ -158,10 +177,13 @@ def build_hierarchy(parent_map, child_map)
     ancestors = get_ancestors_cached.call(org_id)
     descendants = get_descendants_cached.call(org_id)
     
-    hierarchy[org_id] = {
-      'ancestors' => ancestors,
-      'descendants' => descendants
-    }
+    # Only include organizations that have at least one ancestor or descendant
+    if !ancestors.empty? || !descendants.empty?
+      hierarchy[org_id] = {
+        'ancestors' => ancestors,
+        'descendants' => descendants
+      }
+    end
   end
   
   hierarchy
@@ -206,7 +228,9 @@ if __FILE__ == $PROGRAM_NAME
   options = {
     input: default_input,
     funder_output: 'funder_to_ror.json.gz',
-    hierarchy_output: 'ror_hierarchy.json.gz'
+    hierarchy_output: 'ror_hierarchy.json.gz',
+    build_funder: true,
+    build_hierarchy: true
   }
   
   OptionParser.new do |opts|
@@ -224,12 +248,23 @@ if __FILE__ == $PROGRAM_NAME
       options[:hierarchy_output] = file
     end
     
+    opts.on('--funder-only', 'Build only the funder mapping (not hierarchy)') do
+      options[:build_funder] = true
+      options[:build_hierarchy] = false
+    end
+    
+    opts.on('--hierarchy-only', 'Build only the hierarchy (not funder mapping)') do
+      options[:build_funder] = false
+      options[:build_hierarchy] = true
+    end
+    
     opts.on('-h', '--help', 'Show this help message') do
       puts opts
       puts "\nThis script creates both:"
       puts "  1. Funder ID to ROR ID mapping"
       puts "  2. Organization hierarchy (ancestors/descendants)"
       puts "\nFrom a single pass through the ROR data file."
+      puts "\nUse --funder-only or --hierarchy-only to build just one output."
       exit
     end
   end.parse!
@@ -246,33 +281,51 @@ if __FILE__ == $PROGRAM_NAME
   data = load_ror_data(options[:input])
   puts "Loaded #{data.length} organizations"
   
-  # Build all maps in a single pass
-  puts "\nBuilding maps..."
-  parent_map, child_map, funder_to_ror = build_maps(data)
+  # Build maps based on what's requested
+  parent_map = nil
+  child_map = nil
+  funder_to_ror = nil
   
-  # Build hierarchy
-  puts "Building hierarchy..."
-  hierarchy = build_hierarchy(parent_map, child_map)
+  if options[:build_hierarchy]
+    puts "\nBuilding relationship maps..."
+    parent_map, child_map = build_relationship_maps(data)
+  end
+  
+  if options[:build_funder]
+    puts "\nBuilding funder mapping..."
+    funder_to_ror = build_funder_mapping(data)
+  end
+  
+  # Build hierarchy if requested
+  hierarchy = nil
+  if options[:build_hierarchy]
+    puts "Building hierarchy..."
+    hierarchy = build_hierarchy(parent_map, child_map)
+  end
   
   # Statistics
-  puts "\n=== Funder Mapping Statistics ==="
-  puts "  Total funder-to-ROR mappings: #{funder_to_ror.size}"
+  if options[:build_funder]
+    puts "\n=== Funder Mapping Statistics ==="
+    puts "  Total funder-to-ROR mappings: #{funder_to_ror.size}"
+  end
   
-  puts "\n=== Hierarchy Statistics ==="
-  total_orgs = hierarchy.size
-  orgs_with_ancestors = hierarchy.values.count { |v| !v['ancestors'].empty? }
-  orgs_with_descendants = hierarchy.values.count { |v| !v['descendants'].empty? }
-  orgs_with_both = hierarchy.values.count { |v| !v['ancestors'].empty? && !v['descendants'].empty? }
-  
-  puts "  Total organizations: #{total_orgs}"
-  puts "  Organizations with ancestors: #{orgs_with_ancestors}"
-  puts "  Organizations with descendants: #{orgs_with_descendants}"
-  puts "  Organizations with both: #{orgs_with_both}"
+  if options[:build_hierarchy]
+    puts "\n=== Hierarchy Statistics ==="
+    total_orgs = hierarchy.size
+    orgs_with_ancestors = hierarchy.values.count { |v| !v['ancestors'].empty? }
+    orgs_with_descendants = hierarchy.values.count { |v| !v['descendants'].empty? }
+    orgs_with_both = hierarchy.values.count { |v| !v['ancestors'].empty? && !v['descendants'].empty? }
+    
+    puts "  Total organizations: #{total_orgs}"
+    puts "  Organizations with ancestors: #{orgs_with_ancestors}"
+    puts "  Organizations with descendants: #{orgs_with_descendants}"
+    puts "  Organizations with both: #{orgs_with_both}"
+  end
   
   # Write outputs
   puts "\n=== Writing Output Files ==="
-  write_gzipped_json(funder_to_ror, options[:funder_output])
-  write_gzipped_json(hierarchy, options[:hierarchy_output])
+  write_gzipped_json(funder_to_ror, options[:funder_output]) if options[:build_funder]
+  write_gzipped_json(hierarchy, options[:hierarchy_output]) if options[:build_hierarchy]
   
   puts "\nDone!"
 end
