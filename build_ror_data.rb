@@ -167,10 +167,28 @@ def write_gzipped_json(data, output_file)
   end
 end
 
+# Find the most recent ROR data file in the current directory
+def find_latest_ror_file
+  files = Dir.glob('v*schema_v2.json')
+  return nil if files.empty?
+  
+  # Sort by filename (version numbers) and take the last one
+  files.sort.last
+end
+
 # Main
 if __FILE__ == $PROGRAM_NAME
+  default_input = find_latest_ror_file
+  
+  unless default_input
+    puts "No ROR data file found in the current directory."
+    puts "Please download the ROR data file first by running:"
+    puts "  ruby download_ror_data.rb"
+    exit 1
+  end
+  
   options = {
-    input: 'v1.70-2025-08-26-ror-data_schema_v2.json',
+    input: default_input,
     funder_output: 'funder_to_ror.json.gz',
     hierarchy_output: 'ror_hierarchy.json.gz'
   }
@@ -178,7 +196,7 @@ if __FILE__ == $PROGRAM_NAME
   OptionParser.new do |opts|
     opts.banner = "Usage: ruby build_ror_data.rb [options]"
     
-    opts.on('--input FILE', 'Input ROR data file (default: v1.70-2025-08-26-ror-data_schema_v2.json)') do |file|
+    opts.on('--input FILE', "Input ROR data file (default: #{default_input})") do |file|
       options[:input] = file
     end
     
@@ -199,6 +217,14 @@ if __FILE__ == $PROGRAM_NAME
       exit
     end
   end.parse!
+  
+  # Verify input file exists
+  unless File.exist?(options[:input])
+    puts "Error: Input file '#{options[:input]}' not found."
+    puts "Please download the ROR data file first by running:"
+    puts "  ruby download_ror_data.rb"
+    exit 1
+  end
   
   # Load data (expensive operation - done once)
   data = load_ror_data(options[:input])
