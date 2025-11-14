@@ -6,16 +6,32 @@ require 'zlib'
 require 'optparse'
 require 'set'
 
+begin
+  require 'yajl'
+  STREAMING_PARSER_AVAILABLE = true
+rescue LoadError
+  STREAMING_PARSER_AVAILABLE = false
+end
+
 # Build both funder-to-ROR mapping AND hierarchy from ROR data in a single pass
 #
 # This script reads the ROR data JSON file once and creates:
 # 1. Funder ID to ROR ID mapping (from fundref external IDs)
 # 2. Organization hierarchy with ancestors and descendants (from parent/child relationships)
 
-# Load ROR data from JSON file
+# Load ROR data from JSON file using streaming parser if available
 def load_ror_data(filepath)
   puts "Loading data from #{filepath}..."
-  JSON.parse(File.read(filepath))
+  
+  if STREAMING_PARSER_AVAILABLE
+    puts "Using streaming JSON parser for better memory efficiency..."
+    parser = Yajl::Parser.new
+    File.open(filepath, 'r') do |file|
+      parser.parse(file)
+    end
+  else
+    JSON.parse(File.read(filepath))
+  end
 end
 
 # Build relationship maps AND funder mapping from data in a single pass
