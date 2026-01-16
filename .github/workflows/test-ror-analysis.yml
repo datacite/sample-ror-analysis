@@ -1,0 +1,37 @@
+name: Test ROR Analysis
+
+# Only runs manually for testing
+on:
+  workflow_dispatch:
+
+jobs:
+  test-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Ruby (required by sample-ror-analysis)
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      # Step 3: Install dependencies
+      - name: Install gems
+        run: bundle install
+
+      # Step 4: Run the analysis script (produces funder_to_ror.json.gz)
+      - name: Generate ROR analysis
+        run: |
+          mkdir -p test_output
+          bundle exec ruby scripts/generate_analysis.rb \
+            --output test_output/funder_to_ror.json.gz
+
+      # Step 5: Validate the output
+      - name: Validate JSON
+        run: |
+          gunzip -c test_output/funder_to_ror.json.gz | jq '.' > /dev/null
+
