@@ -1,10 +1,12 @@
-name: Test ROR Analysis
+name: Export and Upload ROR JSONs
 
 on:
-  workflow_dispatch:  # manual run only
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'  # monthly, at midnight on the 1st
 
 jobs:
-  test-run:
+  export-upload:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,18 +21,36 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
-      - name: Generate ROR analysis
+      - name: Build ROR data files
         run: |
           mkdir -p test_output
-          bundle exec ruby scripts/generate_analysis.rb \
-            --output test_output/funder_to_ror.json.gz
+          bundle exec ruby scripts/build_ror_data.rb
 
-      - name: Validate JSON
+      - name: List generated files for debug
+        run: ls -l test_output
+
+      - name: Validate funder_to_ror.json.gz
         run: |
           gunzip -c test_output/funder_to_ror.json.gz | jq '.' > /dev/null
 
-      - name: Upload test output
+      - name: Validate ror_hierarchy.json.gz
+        run: |
+          gunzip -c test_output/ror_hierarchy.json.gz | jq '.' > /dev/null
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+      - name: Upload JSON files to S3
+        run: |
+          aws s3 cp test_output/funder_to_ror.json.gz s3://ror-analysis.datacite.org/funder_to_ror.json.gz
+          aws s3 cp test_output/ror_hierarchy.json.gz s3://ror-analysis.datacite.org/ror_hierarchy.json.gz
+
+      - name: Upload test output as artifact (optional backup)
         uses: actions/upload-artifact@v3
         with:
-          name: ror-json-gz
-          path: test_output/funder_to_ror.json.gz
+          name: ror-jsons
+          path: test_output/*.json.gz
