@@ -21,21 +21,24 @@ jobs:
       - name: Install dependencies
         run: bundle install
 
+      - name: Download ROR source data
+        run: |
+          bundle exec ruby download_ror_data.rb
+
       - name: Build ROR data files
         run: |
-          mkdir -p test_output
-          bundle exec ruby scripts/build_ror_data.rb
+          bundle exec ruby build_ror_data.rb
 
       - name: List generated files for debug
-        run: ls -l test_output
+        run: ls -l *.json.gz || true
 
       - name: Validate funder_to_ror.json.gz
         run: |
-          gunzip -c test_output/funder_to_ror.json.gz | jq '.' > /dev/null
+          gunzip -c funder_to_ror.json.gz | jq '.' > /dev/null
 
       - name: Validate ror_hierarchy.json.gz
         run: |
-          gunzip -c test_output/ror_hierarchy.json.gz | jq '.' > /dev/null
+          gunzip -c ror_hierarchy.json.gz | jq '.' > /dev/null
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -46,11 +49,11 @@ jobs:
 
       - name: Upload JSON files to S3
         run: |
-          aws s3 cp test_output/funder_to_ror.json.gz s3://ror-analysis.datacite.org/funder_to_ror.json.gz
-          aws s3 cp test_output/ror_hierarchy.json.gz s3://ror-analysis.datacite.org/ror_hierarchy.json.gz
+          aws s3 cp funder_to_ror.json.gz s3://ror-analysis.datacite.org/funder_to_ror.json.gz
+          aws s3 cp ror_hierarchy.json.gz s3://ror-analysis.datacite.org/ror_hierarchy.json.gz
 
-      - name: Upload test output as artifact (optional backup)
+      - name: Upload JSON output as artifact (optional backup)
         uses: actions/upload-artifact@v3
         with:
           name: ror-jsons
-          path: test_output/*.json.gz
+          path: "*.json.gz"
