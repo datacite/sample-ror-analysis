@@ -5,6 +5,7 @@ require 'json'
 require 'zlib'
 require 'optparse'
 require 'set'
+require 'fileutils'
 
 begin
   require 'yajl'
@@ -189,10 +190,19 @@ def build_hierarchy(parent_map, child_map)
   hierarchy
 end
 
-# Write gzipped JSON file
-def write_gzipped_json(data, output_file)
-  Zlib::GzipWriter.open(output_file) do |gz|
-    gz.write(JSON.generate(data))
+# Write JSON file (gzipped or plain based on file extension)
+def write_json(data, output_file)
+  if output_file.end_with?('.gz')
+    # Write gzipped
+    Zlib::GzipWriter.open(output_file) do |gz|
+      gz.write(JSON.generate(data))
+    end
+  elsif output_file.end_with?('.json')
+    # Write plain JSON
+    File.write(output_file, JSON.generate(data))
+  else
+    puts "Error: Output file must end with .json or .gz"
+    exit 1
   end
   
   size_kb = File.size(output_file) / 1024.0
@@ -205,9 +215,17 @@ def write_gzipped_json(data, output_file)
   end
 end
 
-# Find the most recent ROR data file in the current directory
-def find_latest_ror_file
-  files = Dir.glob('v*schema_v2.json')
+# Find the most recent ROR data file in the specified directory
+# Supports both v2 format (ror-data.json) and legacy v1 format (schema_v2.json)
+def find_latest_ror_file(data_dir = 'data_files')
+  # Look for both v2 format files (v2* ending with ror-data.json) and legacy v1 format files (ending with schema_v2.json)
+  v2_pattern = File.join(data_dir, 'v2*ror-data.json')
+  v1_pattern = File.join(data_dir, 'v*schema_v2.json')
+  
+  v2_files = Dir.glob(v2_pattern)
+  v1_files = Dir.glob(v1_pattern)
+  
+  files = v2_files + v1_files
   return nil if files.empty?
   
   # Sort by filename (version numbers) and take the last one
@@ -216,36 +234,42 @@ end
 
 # Main
 if __FILE__ == $PROGRAM_NAME
-  default_input = find_latest_ror_file
-  
-  unless default_input
-    puts "No ROR data file found in the current directory."
-    puts "Please download the ROR data file first by running:"
-    puts "  ruby download_ror_data.rb"
-    exit 1
-  end
-  
   options = {
-    input: default_input,
-    funder_output: 'funder_to_ror.json.gz',
-    hierarchy_output: 'ror_hierarchy.json.gz',
+    data_dir: 'data_files',
+    output_dir: 'output',
+    input: nil,
+    funder_output: nil,
+    hierarchy_output: nil,
     build_funder: true,
-    build_hierarchy: true
+    build_hierarchy: true,
+    gzip: false
   }
   
   OptionParser.new do |opts|
     opts.banner = "Usage: ruby build_ror_data.rb [options]"
     
-    opts.on('--input FILE', "Input ROR data file (default: #{default_input})") do |file|
+    opts.on('--data-dir DIR', 'Directory containing ROR data files (default: data_files/)') do |dir|
+      options[:data_dir] = dir
+    end
+    
+    opts.on('--output-dir DIR', 'Directory for output files (default: output/)') do |dir|
+      options[:output_dir] = dir
+    end
+    
+    opts.on('--input FILE', 'Input ROR data file (overrides --data-dir search)') do |file|
       options[:input] = file
     end
     
-    opts.on('--funder-output FILE', 'Output funder mapping file (default: funder_to_ror.json.gz)') do |file|
+    opts.on('--funder-output FILE', 'Output funder mapping file (default: output/funder_to_ror.json)') do |file|
       options[:funder_output] = file
     end
     
-    opts.on('--hierarchy-output FILE', 'Output hierarchy file (default: ror_hierarchy.json.gz)') do |file|
+    opts.on('--hierarchy-output FILE', 'Output hierarchy file (default: output/ror_hierarchy.json)') do |file|
       options[:hierarchy_output] = file
+    end
+    
+    opts.on('--gzip', 'Require output files to end with .gz (validates file extensions)') do
+      options[:gzip] = true
     end
     
     opts.on('--funder-only', 'Build only the funder mapping (not hierarchy)') do
@@ -265,9 +289,51 @@ if __FILE__ == $PROGRAM_NAME
       puts "  2. Organization hierarchy (ancestors/descendants)"
       puts "\nFrom a single pass through the ROR data file."
       puts "\nUse --funder-only or --hierarchy-only to build just one output."
+      puts "\nBy default, looks for input files in data_files/ and writes outputs to output/."
       exit
     end
   end.parse!
+  
+  # Set default input file if not specified
+  unless options[:input]
+    options[:input] = find_latest_ror_file(options[:data_dir])
+    unless options[:input]
+      puts "No ROR data file found in #{options[:data_dir]}/"
+      puts "Please download the ROR data file first by running:"
+      puts "  ruby download_ror_data.rb"
+      exit 1
+    end
+  end
+  
+  # Set default output files if not specified
+  default_funder_output = File.join(options[:output_dir], 'funder_to_ror.json')
+  default_hierarchy_output = File.join(options[:output_dir], 'ror_hierarchy.json')
+  
+  options[:funder_output] ||= default_funder_output
+  options[:hierarchy_output] ||= default_hierarchy_output
+  
+  # If --gzip is set and using default file names, append .gz
+  if options[:gzip]
+    if options[:build_funder] && options[:funder_output] == default_funder_output
+      options[:funder_output] = File.join(options[:output_dir], 'funder_to_ror.json.gz')
+    end
+    if options[:build_hierarchy] && options[:hierarchy_output] == default_hierarchy_output
+      options[:hierarchy_output] = File.join(options[:output_dir], 'ror_hierarchy.json.gz')
+    end
+    
+    # Validate --gzip flag: if set, output files must end with .gz
+    if options[:build_funder] && !options[:funder_output].end_with?('.gz')
+      puts "Error: --gzip flag requires funder-output to end with .gz"
+      exit 1
+    end
+    if options[:build_hierarchy] && !options[:hierarchy_output].end_with?('.gz')
+      puts "Error: --gzip flag requires hierarchy-output to end with .gz"
+      exit 1
+    end
+  end
+  
+  # Create output directory if it doesn't exist
+  FileUtils.mkdir_p(options[:output_dir])
   
   # Verify input file exists
   unless File.exist?(options[:input])
@@ -324,8 +390,8 @@ if __FILE__ == $PROGRAM_NAME
   
   # Write outputs
   puts "\n=== Writing Output Files ==="
-  write_gzipped_json(funder_to_ror, options[:funder_output]) if options[:build_funder]
-  write_gzipped_json(hierarchy, options[:hierarchy_output]) if options[:build_hierarchy]
+  write_json(funder_to_ror, options[:funder_output]) if options[:build_funder]
+  write_json(hierarchy, options[:hierarchy_output]) if options[:build_hierarchy]
   
   puts "\nDone!"
 end

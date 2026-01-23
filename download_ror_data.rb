@@ -2,8 +2,12 @@ require 'net/http'
 require 'json'
 require 'zip'
 require 'fileutils'
+require 'optparse'
 
-def download_and_unzip(record_id, path = '.')
+def download_and_unzip(record_id, path = 'data_files')
+  # Create directory if it doesn't exist
+  FileUtils.mkdir_p(path)
+  
   # Downloading the record from Zenodo using the latest API endpoint
   uri = URI("https://zenodo.org/api/records/#{record_id}")
   
@@ -43,6 +47,12 @@ def download_and_unzip(record_id, path = '.')
   file_name = record['files'][0]['key']
   file_path = File.join(path, file_name)
   
+  # Detect format based on zip filename
+  # v2 format: zip filename starts with "v2", files end with ror-data.json
+  # Legacy v1 format: otherwise, files end with schema_v2.json
+  is_v2_format = file_name.start_with?('v2')
+  schema_suffix = is_v2_format ? 'ror-data.json' : 'schema_v2.json'
+  
   # Download the file
   uri = URI(download_link)
   Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
@@ -56,11 +66,13 @@ def download_and_unzip(record_id, path = '.')
     end
   end
   
-  # Unzip only schema_v2.json files
+  # Unzip schema files based on format
+  # v2 format: extract files ending with ror-data.json
+  # Legacy v1 format: extract files ending with schema_v2.json
   extracted_file_names = []
   Zip::File.open(file_path) do |zip_file|
     zip_file.each do |entry|
-      next unless entry.name.end_with?('schema_v2.json')
+      next unless entry.name.end_with?(schema_suffix)
       
       extracted_file_names << entry.name
       extract_path = File.join(path, entry.name)
@@ -82,7 +94,29 @@ end
 # Download the current ROR data file
 # Record ID 6347574 is always the ID for the current data file
 if __FILE__ == $0
-  record_id = '6347574'
-  result = download_and_unzip(record_id)
-  puts "Downloaded and extracted: #{result}" if result
+  options = {
+    data_dir: 'data_files',
+    record_id: '6347574'
+  }
+  
+  OptionParser.new do |opts|
+    opts.banner = "Usage: ruby download_ror_data.rb [options]"
+    
+    opts.on('--data-dir DIR', 'Directory to download files to (default: data_files/)') do |dir|
+      options[:data_dir] = dir
+    end
+    
+    opts.on('-h', '--help', 'Show this help message') do
+      puts opts
+      puts "\nDownloads the latest ROR data file from Zenodo and extracts schema JSON files."
+      puts "Files are downloaded to the specified data directory (default: data_files/)."
+      exit
+    end
+  end.parse!
+  
+  result = download_and_unzip(options[:record_id], options[:data_dir])
+  if result
+    puts "Downloaded and extracted: #{result}"
+    puts "Files saved to: #{options[:data_dir]}/"
+  end
 end
