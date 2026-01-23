@@ -23,6 +23,14 @@ This toolkit provides utilities to:
    bundle install
    ```
 
+## Directory Structure
+
+By default, files are organized into two directories:
+- **`data_files/`** - Contains downloaded raw data files (zip files and extracted JSON schema files)
+- **`output/`** - Contains generated/processed files (funder_to_ror.json.gz, ror_hierarchy.json.gz)
+
+Both directories are created automatically if they don't exist. You can customize these locations using command-line options.
+
 ## Scripts
 
 ### 1. `download_ror_data.rb`
@@ -31,8 +39,12 @@ Downloads the current ROR data file from Zenodo and extracts the appropriate sch
 
 **Usage:**
 ```bash
-ruby download_ror_data.rb
+ruby download_ror_data.rb [options]
 ```
+
+**Options:**
+- `--data-dir DIR` - Directory to download files to (default: `data_files/`)
+- `-h, --help` - Show help message
 
 **Features:**
 - Automatically fetches the latest ROR data from Zenodo using DOI [10.5281/zenodo.6347574](https://doi.org/10.5281/zenodo.6347574)
@@ -42,10 +54,20 @@ ruby download_ror_data.rb
   - **v2 format**: Extracts files ending with `*schema.json` (when zip filename starts with "v2")
   - **Legacy v1 format**: Extracts files ending with `*schema_v2.json`
 - Overwrites existing files if present
+- Creates the data directory if it doesn't exist
 
 **Output:** Downloads and extracts a file like:
-- v2 format: `v2.XX-YYYY-MM-DD-ror-data_schema.json`
-- Legacy v1 format: `v1.XX-YYYY-MM-DD-ror-data_schema_v2.json`
+- v2 format: `data_files/v2.XX-YYYY-MM-DD-ror-data_schema.json`
+- Legacy v1 format: `data_files/v1.XX-YYYY-MM-DD-ror-data_schema_v2.json`
+
+**Examples:**
+```bash
+# Use default data_files/ directory
+ruby download_ror_data.rb
+
+# Use custom directory
+ruby download_ror_data.rb --data-dir custom_data/
+```
 
 ### 2. `build_ror_data.rb`
 
@@ -57,15 +79,17 @@ ruby build_ror_data.rb [options]
 ```
 
 **Options:**
-- `--input FILE` - Input ROR data file (auto-detects latest if not specified)
-- `--funder-output FILE` - Output funder mapping file (default: `funder_to_ror.json.gz`)
-- `--hierarchy-output FILE` - Output hierarchy file (default: `ror_hierarchy.json.gz`)
+- `--data-dir DIR` - Directory containing ROR data files (default: `data_files/`)
+- `--output-dir DIR` - Directory for output files (default: `output/`)
+- `--input FILE` - Input ROR data file (overrides --data-dir search)
+- `--funder-output FILE` - Output funder mapping file (default: `output/funder_to_ror.json.gz`)
+- `--hierarchy-output FILE` - Output hierarchy file (default: `output/ror_hierarchy.json.gz`)
 - `--funder-only` - Build only the funder mapping (not hierarchy)
 - `--hierarchy-only` - Build only the hierarchy (not funder mapping)
 - `-h, --help` - Show help message
 
 **Features:**
-- Automatically finds the most recent ROR data file in the current directory (supports both v2 and legacy v1 formats)
+- Automatically finds the most recent ROR data file in the data directory (supports both v2 and legacy v1 formats)
 - Uses streaming JSON parser (yajl-ruby) for better memory efficiency when available
 - Creates funder ID to ROR ID mappings from Fundref external IDs
 - Builds complete organizational hierarchies with ancestors and descendants
@@ -73,10 +97,12 @@ ruby build_ror_data.rb [options]
 - Outputs compressed JSON files for efficient storage
 - Provides statistics on mappings and hierarchies
 - Build only what you need with `--funder-only` or `--hierarchy-only` flags
+- Creates output directory if it doesn't exist
 
 **Examples:**
 ```bash
 # Build both funder mapping and hierarchy (default)
+# Looks in data_files/ for input, writes to output/
 ruby build_ror_data.rb
 
 # Build only funder mapping
@@ -85,15 +111,18 @@ ruby build_ror_data.rb --funder-only
 # Build only hierarchy
 ruby build_ror_data.rb --hierarchy-only
 
+# Use custom directories
+ruby build_ror_data.rb --data-dir custom_data/ --output-dir custom_output/
+
 # Specify custom input file (supports both v2 and legacy v1 formats)
-ruby build_ror_data.rb --input v2.XX-YYYY-MM-DD-ror-data_schema.json
+ruby build_ror_data.rb --input data_files/v2.XX-YYYY-MM-DD-ror-data_schema.json
 # or legacy v1 format:
-ruby build_ror_data.rb --input v1.70-2025-08-26-ror-data_schema_v2.json
+ruby build_ror_data.rb --input data_files/v1.70-2025-08-26-ror-data_schema_v2.json
 ```
 
 **Outputs:**
-- `funder_to_ror.json.gz` - Mapping of funder IDs to ROR IDs
-- `ror_hierarchy.json.gz` - Organizational hierarchies with ancestors and descendants (only includes organizations with actual relationships)
+- `output/funder_to_ror.json.gz` - Mapping of funder IDs to ROR IDs
+- `output/ror_hierarchy.json.gz` - Organizational hierarchies with ancestors and descendants (only includes organizations with actual relationships)
 
 **Performance Notes:**
 - Install `yajl-ruby` gem for streaming JSON parsing on large files: `bundle install`
@@ -106,22 +135,39 @@ Efficient lookup tool for querying organizational hierarchies and funder mapping
 
 **Command-Line Usage:**
 ```bash
-# Look up by ROR ID
+ruby ror_hierarchy_lookup.rb <id> [options]
+```
+
+**Options:**
+- `--data-dir DIR` - Directory containing generated files (default: `output/`)
+- `--hierarchy-file FILE` - Path to hierarchy file (overrides --data-dir)
+- `--funder-file FILE` - Path to funder mapping file (overrides --data-dir)
+- `-h, --help` - Show help message
+
+**Examples:**
+```bash
+# Look up by ROR ID (uses default output/ directory)
 ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94
 
 # Look up by Funder ID
 ruby ror_hierarchy_lookup.rb 100000001
 
+# Use custom data directory
+ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94 --data-dir custom_output/
+
 # Specify custom data files
-ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94 ror_hierarchy.json.gz funder_to_ror.json.gz
+ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94 --hierarchy-file output/ror_hierarchy.json.gz --funder-file output/funder_to_ror.json.gz
 ```
 
 **Programmatic Usage:**
 ```ruby
 require_relative 'ror_hierarchy_lookup'
 
-# Initialize the lookup (loads the gzipped data files)
+# Initialize the lookup (loads the gzipped data files from output/ by default)
 lookup = RorHierarchyLookup.new
+
+# Or specify custom file paths
+lookup = RorHierarchyLookup.new('output/ror_hierarchy.json.gz', 'output/funder_to_ror.json.gz')
 
 # Look up by ROR ID
 result = lookup.lookup('https://ror.org/02mhbdp94')
@@ -190,7 +236,11 @@ end
 
 After running the scripts, you'll have:
 
+**In `data_files/` directory:**
 - `v*.json` - Raw ROR data file (downloaded from Zenodo)
+- `*.zip` - Downloaded zip files from Zenodo
+
+**In `output/` directory:**
 - `funder_to_ror.json.gz` - Compressed funder-to-ROR mapping
 - `ror_hierarchy.json.gz` - Compressed organizational hierarchy data
 
@@ -202,20 +252,20 @@ After running the scripts, you'll have:
 └───────────┬─────────────┘
             │
             ▼
-   v2.XX-YYYY-MM-DD-ror-data_schema.json
-   (or legacy v1.XX-YYYY-MM-DD-ror-data_schema_v2.json)
+    data_files/
+    ├── v2.XX-YYYY-MM-DD-ror-data_schema.json
+    └── (or legacy v1.XX-YYYY-MM-DD-ror-data_schema_v2.json)
             │
             ▼
 ┌─────────────────────────┐
 │   build_ror_data.rb     │  Processes ROR data
 └───────────┬─────────────┘
             │
-      ┌─────┴──────┐
-      ▼            ▼
-funder_to_ror  ror_hierarchy
-  .json.gz       .json.gz
-      │            │
-      └─────┬──────┘
+            ▼
+      output/
+      ├── funder_to_ror.json.gz
+      └── ror_hierarchy.json.gz
+            │
             ▼
 ┌─────────────────────────┐
 │ ror_hierarchy_lookup.rb │  Query interface

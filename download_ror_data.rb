@@ -90,7 +90,29 @@ end
 # Download the current ROR data file
 # Record ID 6347574 is always the ID for the current data file
 if __FILE__ == $0
-  record_id = '6347574'
-  result = download_and_unzip(record_id)
-  puts "Downloaded and extracted: #{result}" if result
+  options = {
+    data_dir: 'data_files',
+    record_id: '6347574'
+  }
+  
+  OptionParser.new do |opts|
+    opts.banner = "Usage: ruby download_ror_data.rb [options]"
+    
+    opts.on('--data-dir DIR', 'Directory to download files to (default: data_files/)') do |dir|
+      options[:data_dir] = dir
+    end
+    
+    opts.on('-h', '--help', 'Show this help message') do
+      puts opts
+      puts "\nDownloads the latest ROR data file from Zenodo and extracts schema JSON files."
+      puts "Files are downloaded to the specified data directory (default: data_files/)."
+      exit
+    end
+  end.parse!
+  
+  result = download_and_unzip(options[:record_id], options[:data_dir])
+  if result
+    puts "Downloaded and extracted: #{result}"
+    puts "Files saved to: #{options[:data_dir]}/"
+  end
 end

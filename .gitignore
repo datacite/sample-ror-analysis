@@ -3,6 +3,10 @@ v*.json
 *.json.gz
 *.zip
 
+# ROR data directories
+data_files/
+output/
+
 # Ruby
 *.gem
 *.rbc

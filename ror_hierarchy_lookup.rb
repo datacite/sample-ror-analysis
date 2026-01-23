@@ -3,12 +3,13 @@
 
 require 'json'
 require 'zlib'
+require 'optparse'
 
 # ROR Hierarchy Lookup
 # Provides efficient lookup of ancestors and descendants from gzipped JSON
 # Supports both ROR IDs and Funder IDs (looks up ROR ID via funder mapping)
 class RorHierarchyLookup
-  def initialize(hierarchy_file = 'ror_hierarchy.json.gz', funder_mapping_file = 'funder_to_ror.json.gz')
+  def initialize(hierarchy_file = 'output/ror_hierarchy.json.gz', funder_mapping_file = 'output/funder_to_ror.json.gz')
     @hierarchy_data = load_data(hierarchy_file)
     @funder_to_ror = load_data(funder_mapping_file)
   end
@@ -96,22 +97,55 @@ end
 
 # Example usage
 if __FILE__ == $PROGRAM_NAME
+  options = {
+    data_dir: 'output',
+    hierarchy_file: nil,
+    funder_mapping_file: nil
+  }
+  
+  OptionParser.new do |opts|
+    opts.banner = "Usage: ruby ror_hierarchy_lookup.rb <id> [options]"
+    
+    opts.on('--data-dir DIR', 'Directory containing generated files (default: output/)') do |dir|
+      options[:data_dir] = dir
+    end
+    
+    opts.on('--hierarchy-file FILE', 'Path to hierarchy file (overrides --data-dir)') do |file|
+      options[:hierarchy_file] = file
+    end
+    
+    opts.on('--funder-file FILE', 'Path to funder mapping file (overrides --data-dir)') do |file|
+      options[:funder_mapping_file] = file
+    end
+    
+    opts.on('-h', '--help', 'Show this help message') do
+      puts opts
+      puts "\nLooks up organizational hierarchies and funder mappings."
+      puts "  <id> can be either a ROR ID or a Funder ID"
+      puts "\nBy default, looks for files in output/ directory."
+      puts "\nExamples:"
+      puts "  ruby ror_hierarchy_lookup.rb https://ror.org/012xzy7a9"
+      puts "  ruby ror_hierarchy_lookup.rb 100000001"
+      puts "  ruby ror_hierarchy_lookup.rb https://ror.org/012xzy7a9 --data-dir custom_output/"
+      puts "  ruby ror_hierarchy_lookup.rb https://ror.org/012xzy7a9 --hierarchy-file custom/ror_hierarchy.json.gz"
+      exit
+    end
+  end.parse!
+  
   if ARGV.length < 1
-    puts "Usage: ruby ror_hierarchy_lookup.rb <id> [hierarchy_file] [funder_mapping_file]"
-    puts "  <id> can be either a ROR ID or a Funder ID"
-    puts ""
-    puts "Examples:"
-    puts "  ruby ror_hierarchy_lookup.rb https://ror.org/012xzy7a9"
-    puts "  ruby ror_hierarchy_lookup.rb 100000001"
-    puts "  ruby ror_hierarchy_lookup.rb https://ror.org/012xzy7a9 ror_hierarchy.json.gz funder_to_ror.json.gz"
+    puts "Error: Organization ID required"
+    puts "Usage: ruby ror_hierarchy_lookup.rb <id> [options]"
+    puts "Use --help for more information"
     exit 1
   end
 
   id = ARGV[0]
-  hierarchy_file = ARGV[1] || 'ror_hierarchy.json.gz'
-  funder_mapping_file = ARGV[2] || 'funder_to_ror.json.gz'
+  
+  # Set default file paths if not specified
+  options[:hierarchy_file] ||= File.join(options[:data_dir], 'ror_hierarchy.json.gz')
+  options[:funder_mapping_file] ||= File.join(options[:data_dir], 'funder_to_ror.json.gz')
 
-  lookup = RorHierarchyLookup.new(hierarchy_file, funder_mapping_file)
+  lookup = RorHierarchyLookup.new(options[:hierarchy_file], options[:funder_mapping_file])
 
   result = lookup.lookup(id)
 
