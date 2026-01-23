@@ -9,7 +9,7 @@ require 'optparse'
 # Provides efficient lookup of ancestors and descendants from gzipped JSON
 # Supports both ROR IDs and Funder IDs (looks up ROR ID via funder mapping)
 class RorHierarchyLookup
-  def initialize(hierarchy_file = 'output/ror_hierarchy.json.gz', funder_mapping_file = 'output/funder_to_ror.json.gz')
+  def initialize(hierarchy_file = 'output/ror_hierarchy.json', funder_mapping_file = 'output/funder_to_ror.json')
     @hierarchy_data = load_data(hierarchy_file)
     @funder_to_ror = load_data(funder_mapping_file)
   end
@@ -142,8 +142,8 @@ if __FILE__ == $PROGRAM_NAME
   id = ARGV[0]
   
   # Set default file paths if not specified
-  options[:hierarchy_file] ||= File.join(options[:data_dir], 'ror_hierarchy.json.gz')
-  options[:funder_mapping_file] ||= File.join(options[:data_dir], 'funder_to_ror.json.gz')
+  options[:hierarchy_file] ||= File.join(options[:data_dir], 'ror_hierarchy.json')
+  options[:funder_mapping_file] ||= File.join(options[:data_dir], 'funder_to_ror.json')
 
   lookup = RorHierarchyLookup.new(options[:hierarchy_file], options[:funder_mapping_file])
 

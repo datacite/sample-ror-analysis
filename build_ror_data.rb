@@ -190,10 +190,19 @@ def build_hierarchy(parent_map, child_map)
   hierarchy
 end
 
-# Write gzipped JSON file
-def write_gzipped_json(data, output_file)
-  Zlib::GzipWriter.open(output_file) do |gz|
-    gz.write(JSON.generate(data))
+# Write JSON file (gzipped or plain based on file extension)
+def write_json(data, output_file)
+  if output_file.end_with?('.gz')
+    # Write gzipped
+    Zlib::GzipWriter.open(output_file) do |gz|
+      gz.write(JSON.generate(data))
+    end
+  elsif output_file.end_with?('.json')
+    # Write plain JSON
+    File.write(output_file, JSON.generate(data))
+  else
+    puts "Error: Output file must end with .json or .gz"
+    exit 1
   end
   
   size_kb = File.size(output_file) / 1024.0
@@ -232,7 +241,8 @@ if __FILE__ == $PROGRAM_NAME
     funder_output: nil,
     hierarchy_output: nil,
     build_funder: true,
-    build_hierarchy: true
+    build_hierarchy: true,
+    gzip: false
   }
   
   OptionParser.new do |opts|
@@ -250,12 +260,16 @@ if __FILE__ == $PROGRAM_NAME
       options[:input] = file
     end
     
-    opts.on('--funder-output FILE', 'Output funder mapping file (default: output/funder_to_ror.json.gz)') do |file|
+    opts.on('--funder-output FILE', 'Output funder mapping file (default: output/funder_to_ror.json)') do |file|
       options[:funder_output] = file
     end
     
-    opts.on('--hierarchy-output FILE', 'Output hierarchy file (default: output/ror_hierarchy.json.gz)') do |file|
+    opts.on('--hierarchy-output FILE', 'Output hierarchy file (default: output/ror_hierarchy.json)') do |file|
       options[:hierarchy_output] = file
+    end
+    
+    opts.on('--gzip', 'Require output files to end with .gz (validates file extensions)') do
+      options[:gzip] = true
     end
     
     opts.on('--funder-only', 'Build only the funder mapping (not hierarchy)') do
@@ -292,8 +306,20 @@ if __FILE__ == $PROGRAM_NAME
   end
   
   # Set default output files if not specified
-  options[:funder_output] ||= File.join(options[:output_dir], 'funder_to_ror.json.gz')
-  options[:hierarchy_output] ||= File.join(options[:output_dir], 'ror_hierarchy.json.gz')
+  options[:funder_output] ||= File.join(options[:output_dir], 'funder_to_ror.json')
+  options[:hierarchy_output] ||= File.join(options[:output_dir], 'ror_hierarchy.json')
+  
+  # Validate --gzip flag: if set, output files must end with .gz
+  if options[:gzip]
+    if options[:build_funder] && !options[:funder_output].end_with?('.gz')
+      puts "Error: --gzip flag requires funder-output to end with .gz"
+      exit 1
+    end
+    if options[:build_hierarchy] && !options[:hierarchy_output].end_with?('.gz')
+      puts "Error: --gzip flag requires hierarchy-output to end with .gz"
+      exit 1
+    end
+  end
   
   # Create output directory if it doesn't exist
   FileUtils.mkdir_p(options[:output_dir])
@@ -353,8 +379,8 @@ if __FILE__ == $PROGRAM_NAME
   
   # Write outputs
   puts "\n=== Writing Output Files ==="
-  write_gzipped_json(funder_to_ror, options[:funder_output]) if options[:build_funder]
-  write_gzipped_json(hierarchy, options[:hierarchy_output]) if options[:build_hierarchy]
+  write_json(funder_to_ror, options[:funder_output]) if options[:build_funder]
+  write_json(hierarchy, options[:hierarchy_output]) if options[:build_hierarchy]
   
   puts "\nDone!"
 end

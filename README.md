@@ -27,7 +27,7 @@ This toolkit provides utilities to:
 
 By default, files are organized into two directories:
 - **`data_files/`** - Contains downloaded raw data files (zip files and extracted JSON schema files)
-- **`output/`** - Contains generated/processed files (funder_to_ror.json.gz, ror_hierarchy.json.gz)
+- **`output/`** - Contains generated/processed files (funder_to_ror.json, ror_hierarchy.json)
 
 Both directories are created automatically if they don't exist. You can customize these locations using command-line options.
 
@@ -82,8 +82,9 @@ ruby build_ror_data.rb [options]
 - `--data-dir DIR` - Directory containing ROR data files (default: `data_files/`)
 - `--output-dir DIR` - Directory for output files (default: `output/`)
 - `--input FILE` - Input ROR data file (overrides --data-dir search)
-- `--funder-output FILE` - Output funder mapping file (default: `output/funder_to_ror.json.gz`)
-- `--hierarchy-output FILE` - Output hierarchy file (default: `output/ror_hierarchy.json.gz`)
+- `--funder-output FILE` - Output funder mapping file (default: `output/funder_to_ror.json`)
+- `--hierarchy-output FILE` - Output hierarchy file (default: `output/ror_hierarchy.json`)
+- `--gzip` - Require output files to end with `.gz` (validates file extensions)
 - `--funder-only` - Build only the funder mapping (not hierarchy)
 - `--hierarchy-only` - Build only the hierarchy (not funder mapping)
 - `-h, --help` - Show help message
@@ -94,7 +95,8 @@ ruby build_ror_data.rb [options]
 - Creates funder ID to ROR ID mappings from Fundref external IDs
 - Builds complete organizational hierarchies with ancestors and descendants
 - Optimized storage: only includes organizations with actual hierarchical relationships
-- Outputs compressed JSON files for efficient storage
+- Outputs JSON files (plain by default, or gzipped if file extension is `.gz`)
+- Automatic format detection: files ending with `.json` are plain JSON, files ending with `.gz` are gzipped
 - Provides statistics on mappings and hierarchies
 - Build only what you need with `--funder-only` or `--hierarchy-only` flags
 - Creates output directory if it doesn't exist
@@ -121,8 +123,13 @@ ruby build_ror_data.rb --input data_files/v1.70-2025-08-26-ror-data_schema_v2.js
 ```
 
 **Outputs:**
-- `output/funder_to_ror.json.gz` - Mapping of funder IDs to ROR IDs
-- `output/ror_hierarchy.json.gz` - Organizational hierarchies with ancestors and descendants (only includes organizations with actual relationships)
+- `output/funder_to_ror.json` - Mapping of funder IDs to ROR IDs (plain JSON by default)
+- `output/ror_hierarchy.json` - Organizational hierarchies with ancestors and descendants (only includes organizations with actual relationships, plain JSON by default)
+
+**Output Format:**
+- By default, files are written as plain JSON (`.json` extension)
+- If you specify a file ending with `.gz`, it will be automatically gzipped
+- Use the `--gzip` flag to require gzipped output (validates that output files end with `.gz`)
 
 **Performance Notes:**
 - Install `yajl-ruby` gem for streaming JSON parsing on large files: `bundle install`
@@ -156,7 +163,7 @@ ruby ror_hierarchy_lookup.rb 100000001
 ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94 --data-dir custom_output/
 
 # Specify custom data files
-ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94 --hierarchy-file output/ror_hierarchy.json.gz --funder-file output/funder_to_ror.json.gz
+ruby ror_hierarchy_lookup.rb https://ror.org/02mhbdp94 --hierarchy-file output/ror_hierarchy.json --funder-file output/funder_to_ror.json
 ```
 
 **Programmatic Usage:**
@@ -167,7 +174,7 @@ require_relative 'ror_hierarchy_lookup'
 lookup = RorHierarchyLookup.new
 
 # Or specify custom file paths
-lookup = RorHierarchyLookup.new('output/ror_hierarchy.json.gz', 'output/funder_to_ror.json.gz')
+lookup = RorHierarchyLookup.new('output/ror_hierarchy.json', 'output/funder_to_ror.json')
 
 # Look up by ROR ID
 result = lookup.lookup('https://ror.org/02mhbdp94')
@@ -241,8 +248,8 @@ After running the scripts, you'll have:
 - `*.zip` - Downloaded zip files from Zenodo
 
 **In `output/` directory:**
-- `funder_to_ror.json.gz` - Compressed funder-to-ROR mapping
-- `ror_hierarchy.json.gz` - Compressed organizational hierarchy data
+- `funder_to_ror.json` - Funder-to-ROR mapping (plain JSON by default)
+- `ror_hierarchy.json` - Organizational hierarchy data (plain JSON by default)
 
 ## Workflow
 
@@ -263,8 +270,8 @@ After running the scripts, you'll have:
             │
             ▼
       output/
-      ├── funder_to_ror.json.gz
-      └── ror_hierarchy.json.gz
+      ├── funder_to_ror.json
+      └── ror_hierarchy.json
             │
             ▼
 ┌─────────────────────────┐
