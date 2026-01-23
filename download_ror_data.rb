@@ -2,8 +2,12 @@ require 'net/http'
 require 'json'
 require 'zip'
 require 'fileutils'
+require 'optparse'
 
-def download_and_unzip(record_id, path = '.')
+def download_and_unzip(record_id, path = 'data_files')
+  # Create directory if it doesn't exist
+  FileUtils.mkdir_p(path)
+  
   # Downloading the record from Zenodo using the latest API endpoint
   uri = URI("https://zenodo.org/api/records/#{record_id}")
   
