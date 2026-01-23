@@ -306,11 +306,22 @@ if __FILE__ == $PROGRAM_NAME
   end
   
   # Set default output files if not specified
-  options[:funder_output] ||= File.join(options[:output_dir], 'funder_to_ror.json')
-  options[:hierarchy_output] ||= File.join(options[:output_dir], 'ror_hierarchy.json')
+  default_funder_output = File.join(options[:output_dir], 'funder_to_ror.json')
+  default_hierarchy_output = File.join(options[:output_dir], 'ror_hierarchy.json')
   
-  # Validate --gzip flag: if set, output files must end with .gz
+  options[:funder_output] ||= default_funder_output
+  options[:hierarchy_output] ||= default_hierarchy_output
+  
+  # If --gzip is set and using default file names, append .gz
   if options[:gzip]
+    if options[:build_funder] && options[:funder_output] == default_funder_output
+      options[:funder_output] = File.join(options[:output_dir], 'funder_to_ror.json.gz')
+    end
+    if options[:build_hierarchy] && options[:hierarchy_output] == default_hierarchy_output
+      options[:hierarchy_output] = File.join(options[:output_dir], 'ror_hierarchy.json.gz')
+    end
+    
+    # Validate --gzip flag: if set, output files must end with .gz
     if options[:build_funder] && !options[:funder_output].end_with?('.gz')
       puts "Error: --gzip flag requires funder-output to end with .gz"
       exit 1
