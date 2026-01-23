@@ -216,10 +216,10 @@ def write_json(data, output_file)
 end
 
 # Find the most recent ROR data file in the specified directory
-# Supports both v2 format (schema.json) and legacy v1 format (schema_v2.json)
+# Supports both v2 format (ror-data.json) and legacy v1 format (schema_v2.json)
 def find_latest_ror_file(data_dir = 'data_files')
-  # Look for both v2 format files (v2* ending with schema.json) and legacy v1 format files (ending with schema_v2.json)
-  v2_pattern = File.join(data_dir, 'v2*schema.json')
+  # Look for both v2 format files (v2* ending with ror-data.json) and legacy v1 format files (ending with schema_v2.json)
+  v2_pattern = File.join(data_dir, 'v2*ror-data.json')
   v1_pattern = File.join(data_dir, 'v*schema_v2.json')
   
   v2_files = Dir.glob(v2_pattern)

@@ -48,10 +48,10 @@ def download_and_unzip(record_id, path = 'data_files')
   file_path = File.join(path, file_name)
   
   # Detect format based on zip filename
-  # v2 format: zip filename starts with "v2", files end with schema.json
+  # v2 format: zip filename starts with "v2", files end with ror-data.json
   # Legacy v1 format: otherwise, files end with schema_v2.json
   is_v2_format = file_name.start_with?('v2')
-  schema_suffix = is_v2_format ? 'schema.json' : 'schema_v2.json'
+  schema_suffix = is_v2_format ? 'ror-data.json' : 'schema_v2.json'
   
   # Download the file
   uri = URI(download_link)
@@ -67,7 +67,7 @@ def download_and_unzip(record_id, path = 'data_files')
   end
   
   # Unzip schema files based on format
-  # v2 format: extract files ending with schema.json
+  # v2 format: extract files ending with ror-data.json
   # Legacy v1 format: extract files ending with schema_v2.json
   extracted_file_names = []
   Zip::File.open(file_path) do |zip_file|

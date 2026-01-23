@@ -51,13 +51,13 @@ ruby download_ror_data.rb [options]
   - This DOI represents all versions and always resolves to the latest one
 - Follows API redirects to get the current version
 - Automatically detects the data format version (v2 or legacy v1) based on the zip filename
-  - **v2 format**: Extracts files ending with `*schema.json` (when zip filename starts with "v2")
+  - **v2 format**: Extracts files ending with `*ror-data.json` (when zip filename starts with "v2")
   - **Legacy v1 format**: Extracts files ending with `*schema_v2.json`
 - Overwrites existing files if present
 - Creates the data directory if it doesn't exist
 
 **Output:** Downloads and extracts a file like:
-- v2 format: `data_files/v2.XX-YYYY-MM-DD-ror-data_schema.json`
+- v2 format: `data_files/v2.XX-YYYY-MM-DD-ror-data.json`
 - Legacy v1 format: `data_files/v1.XX-YYYY-MM-DD-ror-data_schema_v2.json`
 
 **Examples:**
@@ -117,7 +117,7 @@ ruby build_ror_data.rb --hierarchy-only
 ruby build_ror_data.rb --data-dir custom_data/ --output-dir custom_output/
 
 # Specify custom input file (supports both v2 and legacy v1 formats)
-ruby build_ror_data.rb --input data_files/v2.XX-YYYY-MM-DD-ror-data_schema.json
+ruby build_ror_data.rb --input data_files/v2.XX-YYYY-MM-DD-ror-data.json
 # or legacy v1 format:
 ruby build_ror_data.rb --input data_files/v1.70-2025-08-26-ror-data_schema_v2.json
 ```
@@ -260,7 +260,7 @@ After running the scripts, you'll have:
             │
             ▼
     data_files/
-    ├── v2.XX-YYYY-MM-DD-ror-data_schema.json
+    ├── v2.XX-YYYY-MM-DD-ror-data.json
     └── (or legacy v1.XX-YYYY-MM-DD-ror-data_schema_v2.json)
             │
             ▼
