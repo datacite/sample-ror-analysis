@@ -206,8 +206,13 @@ def write_gzipped_json(data, output_file)
 end
 
 # Find the most recent ROR data file in the current directory
+# Supports both v2 format (schema.json) and legacy v1 format (schema_v2.json)
 def find_latest_ror_file
-  files = Dir.glob('v*schema_v2.json')
+  # Look for both v2 format files (v2* ending with schema.json) and legacy v1 format files (ending with schema_v2.json)
+  v2_files = Dir.glob('v2*schema.json')
+  v1_files = Dir.glob('v*schema_v2.json')
+  
+  files = v2_files + v1_files
   return nil if files.empty?
   
   # Sort by filename (version numbers) and take the last one

@@ -43,6 +43,12 @@ def download_and_unzip(record_id, path = '.')
   file_name = record['files'][0]['key']
   file_path = File.join(path, file_name)
   
+  # Detect format based on zip filename
+  # v2 format: zip filename starts with "v2", files end with schema.json
+  # Legacy v1 format: otherwise, files end with schema_v2.json
+  is_v2_format = file_name.start_with?('v2')
+  schema_suffix = is_v2_format ? 'schema.json' : 'schema_v2.json'
+  
   # Download the file
   uri = URI(download_link)
   Net::HTTP.start(uri.host, uri.port, use_ssl: true) do |http|
@@ -56,11 +62,13 @@ def download_and_unzip(record_id, path = '.')
     end
   end
   
-  # Unzip only schema_v2.json files
+  # Unzip schema files based on format
+  # v2 format: extract files ending with schema.json
+  # Legacy v1 format: extract files ending with schema_v2.json
   extracted_file_names = []
   Zip::File.open(file_path) do |zip_file|
     zip_file.each do |entry|
-      next unless entry.name.end_with?('schema_v2.json')
+      next unless entry.name.end_with?(schema_suffix)
       
       extracted_file_names << entry.name
       extract_path = File.join(path, entry.name)

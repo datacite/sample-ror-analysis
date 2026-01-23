@@ -27,7 +27,7 @@ This toolkit provides utilities to:
 
 ### 1. `download_ror_data.rb`
 
-Downloads the current ROR data file from Zenodo and extracts schema v2 JSON files.
+Downloads the current ROR data file from Zenodo and extracts the appropriate schema JSON files based on the data format version.
 
 **Usage:**
 ```bash
@@ -38,10 +38,14 @@ ruby download_ror_data.rb
 - Automatically fetches the latest ROR data from Zenodo using DOI [10.5281/zenodo.6347574](https://doi.org/10.5281/zenodo.6347574)
   - This DOI represents all versions and always resolves to the latest one
 - Follows API redirects to get the current version
-- Extracts only `*schema_v2.json` files from the archive
+- Automatically detects the data format version (v2 or legacy v1) based on the zip filename
+  - **v2 format**: Extracts files ending with `*schema.json` (when zip filename starts with "v2")
+  - **Legacy v1 format**: Extracts files ending with `*schema_v2.json`
 - Overwrites existing files if present
 
-**Output:** Downloads and extracts a file like `v1.XX-YYYY-MM-DD-ror-data_schema_v2.json`
+**Output:** Downloads and extracts a file like:
+- v2 format: `v2.XX-YYYY-MM-DD-ror-data_schema.json`
+- Legacy v1 format: `v1.XX-YYYY-MM-DD-ror-data_schema_v2.json`
 
 ### 2. `build_ror_data.rb`
 
@@ -61,7 +65,7 @@ ruby build_ror_data.rb [options]
 - `-h, --help` - Show help message
 
 **Features:**
-- Automatically finds the most recent ROR data file in the current directory
+- Automatically finds the most recent ROR data file in the current directory (supports both v2 and legacy v1 formats)
 - Uses streaming JSON parser (yajl-ruby) for better memory efficiency when available
 - Creates funder ID to ROR ID mappings from Fundref external IDs
 - Builds complete organizational hierarchies with ancestors and descendants
@@ -81,7 +85,9 @@ ruby build_ror_data.rb --funder-only
 # Build only hierarchy
 ruby build_ror_data.rb --hierarchy-only
 
-# Specify custom input file
+# Specify custom input file (supports both v2 and legacy v1 formats)
+ruby build_ror_data.rb --input v2.XX-YYYY-MM-DD-ror-data_schema.json
+# or legacy v1 format:
 ruby build_ror_data.rb --input v1.70-2025-08-26-ror-data_schema_v2.json
 ```
 
@@ -196,7 +202,8 @@ After running the scripts, you'll have:
 └───────────┬─────────────┘
             │
             ▼
-   v1.XX-YYYY-MM-DD-ror-data_schema_v2.json
+   v2.XX-YYYY-MM-DD-ror-data_schema.json
+   (or legacy v1.XX-YYYY-MM-DD-ror-data_schema_v2.json)
             │
             ▼
 ┌─────────────────────────┐
