@@ -17,7 +17,6 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: true
 
       - name: Install dependencies
         run: bundle install
@@ -29,13 +28,7 @@ jobs:
         run: bundle exec ruby build_ror_data.rb
 
       - name: List generated files for debug
-        run: ls -l *.json
-
-      - name: Validate funder_to_ror.json
-        run: jq '.' funder_to_ror.json > /dev/null
-
-      - name: Validate ror_hierarchy.json
-        run: jq '.' ror_hierarchy.json > /dev/null
+        run: ls -l output/
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -46,11 +39,14 @@ jobs:
 
       - name: Upload JSON files to S3
         run: |
-          aws s3 cp funder_to_ror.json s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/funder_to_ror.json
-          aws s3 cp ror_hierarchy.json s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/ror_hierarchy.json
+          aws s3 cp output/funder_to_ror.json.gz \
+            s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/funder_to_ror.json.gz
+
+          aws s3 cp output/ror_hierarchy.json.gz \
+            s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/ror_hierarchy.json.gz
 
       - name: Upload JSON output as artifact (optional backup)
         uses: actions/upload-artifact@v4
         with:
           name: ror-jsons
-          path: "*.json"
+          path: output/*.json.gz
