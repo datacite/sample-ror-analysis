@@ -1,0 +1,56 @@
+name: Export and Upload ROR JSONs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 * *'  # monthly, at midnight on the 1st
+
+jobs:
+  export-upload:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Install dependencies
+        run: bundle install
+
+      - name: Download ROR source data
+        run: bundle exec ruby download_ror_data.rb
+
+      - name: Build ROR data files
+        run: bundle exec ruby build_ror_data.rb
+
+      - name: List generated files for debug
+        run: ls -l *.json
+
+      - name: Validate funder_to_ror.json
+        run: jq '.' funder_to_ror.json > /dev/null
+
+      - name: Validate ror_hierarchy.json
+        run: jq '.' ror_hierarchy.json > /dev/null
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.ROR_ANALYSIS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.ROR_ANALYSIS_SECRET_ACCESS_KEY }}
+
+      - name: Upload JSON files to S3
+        run: |
+          aws s3 cp funder_to_ror.json s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/funder_to_ror.json
+          aws s3 cp ror_hierarchy.json s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/ror_hierarchy.json
+
+      - name: Upload JSON output as artifact (optional backup)
+        uses: actions/upload-artifact@v3
+        with:
+          name: ror-jsons
+          path: "*.json"
