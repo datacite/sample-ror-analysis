@@ -195,11 +195,11 @@ def write_json(data, output_file)
   if output_file.end_with?('.gz')
     # Write gzipped
     Zlib::GzipWriter.open(output_file) do |gz|
-      gz.write(JSON.generate(data))
+      gz.write(JSON.pretty_generate(data))
     end
   elsif output_file.end_with?('.json')
     # Write plain JSON
-    File.write(output_file, JSON.generate(data))
+    File.write(output_file, JSON.pretty_generate(data))
   else
     puts "Error: Output file must end with .json or .gz"
     exit 1
