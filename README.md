@@ -136,7 +136,45 @@ ruby build_ror_data.rb --input data_files/v1.70-2025-08-26-ror-data_schema_v2.js
 - Hierarchy file only contains organizations with parent/child relationships, significantly reducing file size
 - Use `--funder-only` or `--hierarchy-only` to process only what you need
 
-### 3. `ror_hierarchy_lookup.rb`
+### 3. `build_ror_to_countries.rb`
+
+Generates a lookup file mapping **ROR organization IDs** to **ISO 3166 country codes** derived from the ROR record locations:
+
+- Source field: `locations[].geonames_details.country_code`
+- Country codes are uppercased and deduplicated per ROR ID
+- If an organization has multiple locations, it may map to multiple country codes
+
+**Usage:**
+```bash
+ruby build_ror_to_countries.rb [options]
+```
+
+**Options:**
+- `--data-dir DIR` - Directory containing extracted ROR JSON files (default: `data_files/`)
+- `--input FILE` - Explicit path to an extracted ROR JSON file (overrides `--data-dir` search)
+- `--output FILE` - Output mapping file (default: `ror_to_countries.json`)
+
+**Examples:**
+```bash
+# Typical workflow (auto-detect latest extracted ROR JSON under data_files/)
+ruby download_ror_data.rb
+ruby build_ror_to_countries.rb
+
+# Use a custom data directory
+ruby download_ror_data.rb --data-dir custom_data/
+ruby build_ror_to_countries.rb --data-dir custom_data/
+
+# Use an explicit extracted JSON file
+ruby build_ror_to_countries.rb --input data_files/v2.XX-YYYY-MM-DD-ror-data.json
+
+# Write output to a custom location
+ruby build_ror_to_countries.rb --output output/ror_to_countries.json
+```
+
+**Output:**
+- `ror_to_countries.json` (repo root by default)
+
+### 4. `ror_hierarchy_lookup.rb`
 
 Efficient lookup tool for querying organizational hierarchies and funder mappings.
 
@@ -223,7 +261,12 @@ end
    ruby build_ror_data.rb
    ```
 
-3. **Query the hierarchy:**
+3. **Build the ROR → country code mapping:**
+   ```bash
+   ruby build_ror_to_countries.rb
+   ```
+
+4. **Query the hierarchy:**
    ```bash
    # Command-line lookup
    ruby ror_hierarchy_lookup.rb 100000001
@@ -263,13 +306,16 @@ After running the scripts, you'll have:
     ├── v2.XX-YYYY-MM-DD-ror-data.json
     └── (or legacy v1.XX-YYYY-MM-DD-ror-data_schema_v2.json)
             │
-            ▼
-┌─────────────────────────┐
-│   build_ror_data.rb     │  Processes ROR data
-└───────────┬─────────────┘
-            │
-            ▼
-      output/
+            ├───────────────────────────────┐
+            │                               │
+            ▼                               ▼
+┌─────────────────────────┐       ┌──────────────────────────────┐
+│   build_ror_data.rb     │       │   build_ror_to_countries.rb  │
+│  Processes ROR data     │       │  Builds country code mapping │
+└───────────┬─────────────┘       └───────────────--┬────────────┘
+            │                                       │
+            ▼                                       ▼
+      output/                               ror_to_countries.json
       ├── funder_to_ror.json
       └── ror_hierarchy.json
             │
