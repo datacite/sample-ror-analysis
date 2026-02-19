@@ -28,6 +28,9 @@ jobs:
       - name: Build ROR data files
         run: bundle exec ruby build_ror_data.rb
 
+      - name: Build ROR to countries mapping
+        run: bundle exec ruby build_ror_to_countries.rb --output output/ror_to_countries.json
+
       - name: List generated files for debug
         run: ls -l output/*.json
 
@@ -36,6 +39,9 @@ jobs:
 
       - name: Validate ror_hierarchy.json
         run: jq '.' output/ror_hierarchy.json > /dev/null
+
+      - name: Validate ror_to_countries.json
+        run: jq '.' output/ror_to_countries.json > /dev/null
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -48,3 +54,4 @@ jobs:
         run: |
           aws s3 cp output/funder_to_ror.json s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/funder_to_ror.json
           aws s3 cp output/ror_hierarchy.json s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/ror_hierarchy.json
+          aws s3 cp output/ror_to_countries.json s3://${{ secrets.ROR_ANALYSIS_S3_BUCKET }}/ror_funder_mapping/ror_to_countries.json
